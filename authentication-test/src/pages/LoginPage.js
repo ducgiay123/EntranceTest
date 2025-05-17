@@ -61,30 +61,6 @@ const LoginPage = () => {
         );
       }
     }
-    // if (!isValid) return;
-
-    // try {
-    //   const response = await axios.post(
-    //     "http://streaming.nexlesoft.com:3001/auth/signin",
-    //     {
-    //       email,
-    //       password,
-    //     }
-    //   );
-
-    //   const { accessToken, refreshToken } = response.data;
-
-    //   // Save tokens to sessionStorage
-    //   sessionStorage.setItem("accessToken", accessToken);
-    //   sessionStorage.setItem("refreshToken", refreshToken);
-
-    //   // Redirect to homepage or dashboard
-    //   // window.location.href = "/navigate("/")"; // adjust as needed
-    //   navigate("/dashboard"); // Adjust the path to your home route
-    // } catch (error) {
-    //   console.error("Login failed:", error);
-    //   alert("Login failed. Please check your credentials and try again.");
-    // }
   };
   useEffect(() => {
     if (accessToken) {

@@ -26,38 +26,40 @@ namespace AuthenticationTest.Controller.src
         public async Task<IActionResult> SignUp([FromBody] SignUpRequestDto dto)
         {
             if (dto == null)
-                return BadRequest(new { error = "Invalid request body." });
+                return BadRequest("Invalid request body.");
 
             try
             {
                 var user = await _authService.SignUpAsync(dto);
 
-                return CreatedAtAction(nameof(SignUp), new
+                var response = new SignUpResponseDto
                 {
-                    user.Email
-                }, new
-                {
-                    user.FirstName,
-                    user.LastName,
-                    user.Email
-                });
+                    Id = user.Id,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Email = user.Email,
+                };
+
+                return CreatedAtAction(nameof(SignUp), new { email = user.Email }, response);
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { error = ex.Message });
+                return BadRequest(ex.Message);
             }
             catch (InvalidOperationException ex)
             {
-                return Conflict(new { error = ex.Message });
+                return Conflict(ex.Message);
             }
             catch (Exception)
             {
-                return StatusCode(500, new { error = "Internal server error." });
+                return StatusCode(500, "Internal server error.");
             }
         }
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {
+            if (dto == null)
+                return BadRequest("Invalid request body.");
             try
             {
                 var response = await _authService.LoginAsync(dto);
@@ -65,15 +67,15 @@ namespace AuthenticationTest.Controller.src
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { error = ex.Message });
+                return BadRequest(ex.Message);
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { error = ex.Message });
+                return Unauthorized(ex.Message);
             }
             catch (Exception)
             {
-                return StatusCode(500, new { error = "Internal server error." });
+                return StatusCode(500, "Internal server error.");
             }
         }
         [Authorize]
@@ -85,17 +87,17 @@ namespace AuthenticationTest.Controller.src
                 var emailClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
                 if (string.IsNullOrWhiteSpace(emailClaim))
-                    return Unauthorized(new { error = "Invalid user authentication." });
+                    return Unauthorized("Invalid user authentication.");
 
                 bool result = await _authService.LogoutAsync(emailClaim, dto.RefreshToken);
                 if (!result)
-                    return BadRequest(new { error = $"Invalid or expired refresh token.{emailClaim} " });
+                    return BadRequest($"Invalid or expired refresh token.");
 
-                return Ok(new { message = "Logged out successfully." });
+                return Ok("Logged out successfully.");
             }
             catch (Exception)
             {
-                return StatusCode(500, new { error = "Internal server error." });
+                return StatusCode(500, "Internal server error.");
             }
         }
         [HttpPost("refreshToken")]
@@ -104,22 +106,22 @@ namespace AuthenticationTest.Controller.src
             try
             {
                 if (dto == null || string.IsNullOrWhiteSpace(dto.RefreshToken))
-                    return BadRequest(new { error = "Refresh token is required." });
+                    return BadRequest("Refresh token is required.");
 
                 var response = await _authService.RefreshTokenAsync(dto.RefreshToken);
                 return Ok(response);
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { error = ex.Message });
+                return BadRequest(ex.Message);
             }
             catch (KeyNotFoundException)
             {
-                return NotFound(new { error = "Invalid or expired refresh token." });
+                return NotFound("Invalid or expired refresh token.");
             }
             catch (Exception)
             {
-                return StatusCode(500, new { error = "Internal server error." });
+                return StatusCode(500, "Internal server error.");
             }
         }
         [HttpGet("hello")]

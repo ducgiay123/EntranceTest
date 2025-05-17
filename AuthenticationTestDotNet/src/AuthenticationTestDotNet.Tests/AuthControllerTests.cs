@@ -7,6 +7,7 @@ using Moq;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using Xunit;
+using System.Diagnostics;
 
 namespace AuthenticationTestDotNet.Tests
 {
@@ -50,12 +51,19 @@ namespace AuthenticationTestDotNet.Tests
             };
             var response = new SignUpResponseDto
             {
+                Id = 0,
                 FirstName = "John",
                 LastName = "Doe",
                 Email = "john.doe@example.com"
             };
-            _authServiceMock.Setup(s => s.SignUpAsync(request))
-                .ReturnsAsync(response);
+            _authServiceMock
+            .Setup(s => s.SignUpAsync(It.Is<SignUpRequestDto>(r =>
+                r.Email == request.Email &&
+                r.FirstName == request.FirstName &&
+                r.LastName == request.LastName &&
+                r.Password == request.Password)))
+            .ReturnsAsync(response);
+
 
             // Act
             var result = await _controller.SignUp(request);
@@ -77,9 +85,10 @@ namespace AuthenticationTestDotNet.Tests
             // Assert
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
             Assert.Equal(400, badRequestResult.StatusCode);
-            var errorMessage = badRequestResult.Value as string; // Assume string error
+            var errorMessage = badRequestResult.Value as string;
             Assert.Equal("Invalid request body.", errorMessage);
         }
+
 
         [Fact]
         public async Task SignUp_EmailTaken_ReturnsConflict()
@@ -101,7 +110,7 @@ namespace AuthenticationTestDotNet.Tests
             // Assert
             var conflictResult = Assert.IsType<ConflictObjectResult>(result);
             Assert.Equal(409, conflictResult.StatusCode);
-            var errorMessage = conflictResult.Value as string; // Assume string error
+            var errorMessage = conflictResult.Value; // Assume string error
             Assert.Equal("Email is already registered.", errorMessage);
         }
 
@@ -176,7 +185,7 @@ namespace AuthenticationTestDotNet.Tests
             // Assert
             var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
             Assert.Equal(401, unauthorizedResult.StatusCode);
-            var errorMessage = unauthorizedResult.Value as string; // Assume string error
+            var errorMessage = unauthorizedResult.Value; // Assume string error
             Assert.Equal("Invalid email or password.", errorMessage);
         }
 
@@ -190,7 +199,7 @@ namespace AuthenticationTestDotNet.Tests
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
             Assert.Equal(400, badRequestResult.StatusCode);
             var errorMessage = badRequestResult.Value as string; // Assume string error
-            Assert.Equal("Email and password are required.", errorMessage);
+            Assert.Equal("Invalid request body.", errorMessage);
         }
 
         [Fact]
@@ -211,7 +220,7 @@ namespace AuthenticationTestDotNet.Tests
             // Assert
             var statusCodeResult = Assert.IsType<ObjectResult>(result);
             Assert.Equal(500, statusCodeResult.StatusCode);
-            var errorMessage = statusCodeResult.Value as string; // Assume string error
+            var errorMessage = statusCodeResult.Value; // Assume string error
             Assert.Equal("Internal server error.", errorMessage);
         }
         #endregion
@@ -231,7 +240,7 @@ namespace AuthenticationTestDotNet.Tests
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             Assert.Equal(200, okResult.StatusCode);
-            var message = okResult.Value as string; // Assume string message
+            var message = okResult.Value; // Assume string message
             Assert.Equal("Logged out successfully.", message);
         }
 
@@ -249,7 +258,7 @@ namespace AuthenticationTestDotNet.Tests
             // Assert
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
             Assert.Equal(400, badRequestResult.StatusCode);
-            var errorMessage = badRequestResult.Value as string; // Assume string error
+            var errorMessage = badRequestResult.Value; // Assume string error
             Assert.Equal("Invalid or expired refresh token.", errorMessage);
         }
 
@@ -270,7 +279,7 @@ namespace AuthenticationTestDotNet.Tests
             // Assert
             var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
             Assert.Equal(401, unauthorizedResult.StatusCode);
-            var errorMessage = unauthorizedResult.Value as string; // Assume string error
+            var errorMessage = unauthorizedResult.Value; // Assume string error
             Assert.Equal("Invalid user authentication.", errorMessage);
         }
 

@@ -23,6 +23,7 @@
     <ProjectReference Include="..\AuthenticationTest.Controller\AuthenticationTest.Controller.csproj" />
     <ProjectReference Include="..\AuthenticationTest.Service\AuthenticationTest.Service.csproj" />
     <ProjectReference Include="..\AuthenticationTest.Core\AuthenticationTest.Core.csproj" />
+    <ProjectReference Include="..\AuthenticationTest.Infrastructure\AuthenticationTest.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
