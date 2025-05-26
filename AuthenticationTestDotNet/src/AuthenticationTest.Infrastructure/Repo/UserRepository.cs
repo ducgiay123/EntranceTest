@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AuthenticationTest.Core.RepoAbstract;
+using AuthenticationTest.Core.src.Utilities;
 using AuthenticationTest.Infrastructure.Database;
 using AuthenticationTest.src.Core.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -17,16 +18,22 @@ namespace AuthenticationTest.Infrastructure.Repo
         {
             _context = context;
         }
-
-        public async Task<User?> GetByEmailAsync(string email)
+        public async Task<IEnumerable<Users>> GetAllUserAsync()
+        {
+            return await _context.User
+                                 .Where(u => u.Role == UserRole.User) // Filter by Role
+                                 .ToListAsync();
+        }
+        public async Task<Users?> GetByEmailAsync(string email)
         {
             return await _context.User
                 .Include(u => u.Tokens)
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        public async Task<User> CreateAsync(User user)
+        public async Task<Users> CreateAsync(Users user)
         {
+            user.Role = UserRole.User; // Default role
             _context.User.Add(user);
             await _context.SaveChangesAsync();
             return user;
@@ -43,7 +50,7 @@ namespace AuthenticationTest.Infrastructure.Repo
             if (user == null)
                 throw new ArgumentException($"User with ID {userId} not found.");
 
-            var token = new Token
+            var token = new Tokens
             {
                 UserId = userId,
                 RefreshToken = refreshToken,
@@ -56,7 +63,7 @@ namespace AuthenticationTest.Infrastructure.Repo
             _context.Token.Add(token);
             await _context.SaveChangesAsync();
         }
-        public async Task<bool> RevokeRefreshTokenAsync(string email, string refreshToken)
+        public async Task<bool> RevokeAllRefreshTokensAsync(string email)
         {
             // Find user by email
             var user = await _context.User
@@ -68,7 +75,7 @@ namespace AuthenticationTest.Infrastructure.Repo
 
             // Verify the provided refresh token is valid and non-expired
             var token = await _context.Token
-                .FirstOrDefaultAsync(rt => rt.UserId == userId && rt.RefreshToken == refreshToken);
+                .FirstOrDefaultAsync(rt => rt.UserId == userId);
 
             if (token == null)
                 return false;
@@ -85,7 +92,7 @@ namespace AuthenticationTest.Infrastructure.Repo
             await _context.SaveChangesAsync();
             return true;
         }
-        public async Task<User?> ValidateRefreshTokenAsync(string refreshToken)
+        public async Task<Users?> ValidateRefreshTokenAsync(string refreshToken)
         {
             var token = await _context.Token
                 .Include(rt => rt.User)
@@ -108,6 +115,42 @@ namespace AuthenticationTest.Infrastructure.Repo
                 await _context.SaveChangesAsync();
             }
         }
+        public async Task<bool> DeleteAsync(string email)
+        {
+            var user = await _context.User.FirstOrDefaultAsync(u => u.Email == email);
+            if (user == null)
+            {
+                return false; // or throw a KeyNotFoundException
+            }
 
+            _context.User.Remove(user);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        public async Task<Users> UpdateAsync(Users user)
+        {
+            var existingUser = await _context.User.FirstOrDefaultAsync(u => u.Id == user.Id);
+
+            if (existingUser == null)
+            {
+                throw new KeyNotFoundException($"User with ID {user.Id} not found.");
+            }
+
+            // Update the fields
+            existingUser.FirstName = user.FirstName;
+            existingUser.LastName = user.LastName;
+            existingUser.Role = user.Role;
+            existingUser.UpdatedAt = DateTime.UtcNow;
+
+            if (!string.IsNullOrWhiteSpace(user.Hash))
+            {
+                existingUser.Hash = user.Hash;
+            }
+
+            _context.User.Update(existingUser);
+            await _context.SaveChangesAsync();
+
+            return existingUser;
+        }
     }
 }

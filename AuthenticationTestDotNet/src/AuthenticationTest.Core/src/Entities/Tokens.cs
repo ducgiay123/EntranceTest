@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace AuthenticationTest.src.Core.Entities
 {
-    public class Token
+    public class Tokens
     {
         public int Id { get; set; }
 
@@ -24,6 +24,6 @@ namespace AuthenticationTest.src.Core.Entities
         [Required]
         public DateTime UpdatedAt { get; set; }
 
-        public User User { get; set; } = null!;
+        public Users User { get; set; } = null!;
     }
 }

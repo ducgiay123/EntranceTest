@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using AuthenticationTest.Core.src.Entities;
+using AuthenticationTest.Core.src.Utilities;
 
 namespace AuthenticationTest.src.Core.Entities
 {
-    public class User
+    public class Users
     {
         public int Id { get; set; }
 
@@ -35,6 +37,11 @@ namespace AuthenticationTest.src.Core.Entities
         [Required]
         public DateTime UpdatedAt { get; set; }
 
-        public ICollection<Token> Tokens { get; set; } = new List<Token>();
+        [Required]
+        public UserRole Role { get; set; } = UserRole.User;
+
+        public ICollection<Tokens> Tokens { get; set; } = new List<Tokens>();
+        public ICollection<Tasks> Tasks { get; set; } = new List<Tasks>();
     }
+
 }

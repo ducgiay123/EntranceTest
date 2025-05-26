@@ -4,85 +4,75 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using AuthenticationTest.Core.src.Utilities;
 
 namespace AuthenticationTest.Service.src.DTOs
 {
-
     public class SignUpRequestDto
     {
-        [Required]
-        [StringLength(64)]
-        [EmailAddress]
-        public string Email { get; set; }
+        [Required(ErrorMessage = "Email is required.")]
+        [StringLength(64, ErrorMessage = "Email cannot exceed 64 characters.")]
+        [EmailAddress(ErrorMessage = "Invalid email format.")]
+        public string Email { get; set; } = string.Empty;
 
-        [Required]
-        [StringLength(20, MinimumLength = 8)]
-        public string Password { get; set; }
+        [Required(ErrorMessage = "Password is required.")]
+        [StringLength(20, MinimumLength = 8, ErrorMessage = "Password must be between 8 and 20 characters.")]
+        public string Password { get; set; } = string.Empty;
 
-        [Required]
-        [StringLength(32)]
-        public string FirstName { get; set; }
+        [Required(ErrorMessage = "First name is required.")]
+        [StringLength(32, ErrorMessage = "First name cannot exceed 32 characters.")]
+        public string FirstName { get; set; } = string.Empty;
 
-        [Required]
-        [StringLength(32)]
-        public string LastName { get; set; }
+        [Required(ErrorMessage = "Last name is required.")]
+        [StringLength(32, ErrorMessage = "Last name cannot exceed 32 characters.")]
+        public string LastName { get; set; } = string.Empty;
     }
+
     public class SignUpResponseDto
     {
         public int Id { get; set; }
-
-        public string FirstName { get; set; }
-
-        public string LastName { get; set; }
-
-        public string Email { get; set; }
-
-        public string DisplayName => $"{FirstName} {LastName}";
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
     }
+
     public class LoginRequestDto
     {
-        [Required]
-        [StringLength(64)]
-        [EmailAddress]
-        public string Email { get; set; }
+        [Required(ErrorMessage = "Email is required.")]
+        [StringLength(64, ErrorMessage = "Email cannot exceed 64 characters.")]
+        [EmailAddress(ErrorMessage = "Invalid email format.")]
+        public string Email { get; set; } = string.Empty;
 
-        [Required]
-        [StringLength(20, MinimumLength = 8)]
-        public string Password { get; set; }
+        [Required(ErrorMessage = "Password is required.")]
+        [StringLength(20, MinimumLength = 8, ErrorMessage = "Password must be between 8 and 20 characters.")]
+        public string Password { get; set; } = string.Empty;
     }
 
     public class LoginResponseDto
     {
-        public UserDto User { get; set; }
-        public string Token { get; set; }
-        public string RefreshToken { get; set; }
+        public UserDto User { get; set; } = null!;
+        public string Token { get; set; } = string.Empty;
+        public string RefreshToken { get; set; } = string.Empty;
     }
+
     public class UserDto
     {
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string Email { get; set; }
-        public string DisplayName { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public UserRole Role { get; set; } = UserRole.User;
     }
-    public class LogoutRequestDto
-    {
-        public string RefreshToken { get; set; }
-    }
+
     public class RefreshTokenRequestDto
     {
-        public string RefreshToken { get; set; }
+        [Required(ErrorMessage = "Refresh token is required.")]
+        public string RefreshToken { get; set; } = string.Empty;
     }
 
     public class RefreshTokenResponseDto
     {
-        public string Token { get; set; }
-        public string RefreshToken { get; set; }
-    }
-
-    // Response DTO
-    public class TokenResponseDto
-    {
-        public string Token { get; set; }
-        public string RefreshToken { get; set; }
+        public string Token { get; set; } = string.Empty;
+        public string RefreshToken { get; set; } = string.Empty;
     }
 }

@@ -24,10 +24,8 @@ jest.mock("react-router-dom", () => ({
 // Create a mock Redux store
 const mockStore = configureStore({
   reducer: {
-    auth: (
-      state = { loading: false, error: null, accessToken: null },
-      action
-    ) => state,
+    auth: (state = { loading: false, error: null, token: null }, action) =>
+      state,
   },
 });
 
@@ -163,12 +161,12 @@ describe("LoginPage Component", () => {
     });
   });
 
-  // Test 6: Navigates to dashboard if accessToken exists
-  test("navigates to dashboard if accessToken exists", () => {
+  // Test 6: Navigates to dashboard if token exists
+  test("navigates to dashboard if token exists", () => {
     const storeWithToken = configureStore({
       reducer: {
         auth: (
-          state = { loading: false, error: null, accessToken: "some-token" },
+          state = { loading: false, error: null, token: "some-token" },
           action
         ) => state,
       },

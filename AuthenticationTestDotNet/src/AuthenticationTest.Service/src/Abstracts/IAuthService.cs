@@ -12,8 +12,10 @@ namespace AuthenticationTest.Service.src.Abstracts
     {
         Task<SignUpResponseDto> SignUpAsync(SignUpRequestDto dto);
         Task<LoginResponseDto> LoginAsync(LoginRequestDto dto);
-        Task<bool> LogoutAsync(string email, string refreshToken);
-        Task<User?> GetUserByEmailAsync(string email);
+        Task<bool> LogoutAsync(string email);
+
+        Task<Users?> GetUserAsync(string email);
+
         Task<RefreshTokenResponseDto> RefreshTokenAsync(string refreshToken);
     }
 }

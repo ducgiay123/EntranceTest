@@ -45,7 +45,7 @@ const SignupPage = () => {
       try {
         // Make API request to create account
         const response = await axios.post(
-          "http://streaming.nexlesoft.com:3001/auth/signup",
+          "http://localhost:5000/api/v1/auth/signup",
           {
             firstName: formData.firstname,
             lastName: formData.lastname,

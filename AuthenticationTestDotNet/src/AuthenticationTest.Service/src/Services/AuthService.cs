@@ -1,7 +1,7 @@
-﻿using AuthenticationTest.Core.RepoAbstract;
+﻿using AuthenticationTest.Core.src.RepoAbstract;
 using AuthenticationTest.Service.src.Abstracts;
 using AuthenticationTest.Service.src.DTOs;
-using AuthenticationTest.src.Core.Entities;
+using AuthenticationTest.Core.src.Entities;
 using Konscious.Security.Cryptography;
 using Microsoft.IdentityModel.Tokens;
 using System;
@@ -11,20 +11,24 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Security.Claims;
 using Microsoft.Extensions.Configuration;
-using System.Diagnostics;
+using AutoMapper;
+using AuthenticationTest.Core.RepoAbstract;
+using AuthenticationTest.src.Core.Entities;
 
 namespace AuthenticationTest.Service.src.Services
 {
     public class AuthService : IAuthService
     {
         private readonly IUserRepository _userRepository;
+        private readonly IMapper _mapper;
         private readonly string _jwtSecret;
         private readonly string _issuer;
         private readonly string _audience;
 
-        public AuthService(IUserRepository userRepository, IConfiguration configuration)
+        public AuthService(IUserRepository userRepository, IMapper mapper, IConfiguration configuration)
         {
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _jwtSecret = configuration["Jwt:Secret"] ?? throw new ArgumentNullException("Jwt:Secret is missing in configuration.");
             _issuer = configuration["Jwt:Issuer"] ?? "AuthenticationTest";
             _audience = configuration["Jwt:Audience"] ?? "AuthenticationTest";
@@ -32,40 +36,24 @@ namespace AuthenticationTest.Service.src.Services
 
         public async Task<SignUpResponseDto> SignUpAsync(SignUpRequestDto dto)
         {
-            ValidateSignUpRequest(dto);
-
             if (!await _userRepository.IsEmailAvailableAsync(dto.Email))
                 throw new InvalidOperationException("Email is already registered.");
 
-            var user = new User
-            {
-                FirstName = dto.FirstName,
-                LastName = dto.LastName,
-                Email = dto.Email,
-                Hash = await HashPasswordAsync(dto.Password),
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            var createdUser = await _userRepository.CreateAsync(user);
+            var user = _mapper.Map<Users>(dto);
+            user.Hash = HashPasswordSync(dto.Password);
+            user.CreatedAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.UtcNow;
 
-            return new SignUpResponseDto
-            {
-                FirstName = createdUser.FirstName,
-                LastName = createdUser.LastName,
-                Email = createdUser.Email
-            };
+            var createdUser = await _userRepository.CreateAsync(user);
+            return _mapper.Map<SignUpResponseDto>(createdUser);
         }
 
         public async Task<LoginResponseDto> LoginAsync(LoginRequestDto dto)
         {
-            if (dto == null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
-                throw new ArgumentException("Email and password are required.");
-
             var user = await _userRepository.GetByEmailAsync(dto.Email);
             if (user == null || string.IsNullOrWhiteSpace(user.Hash))
                 throw new UnauthorizedAccessException("Cannot find user with this email.");
 
-            // Use the new VerifyPasswordAsync
             bool isPasswordValid = await VerifyPasswordAsync(dto.Password, user.Hash);
             if (!isPasswordValid)
                 throw new UnauthorizedAccessException("Invalid email or password.");
@@ -77,48 +65,60 @@ namespace AuthenticationTest.Service.src.Services
 
             return new LoginResponseDto
             {
-                User = new UserDto
-                {
-                    FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    Email = user.Email,
-                    DisplayName = $"{user.FirstName} {user.LastName}"
-                },
+                User = _mapper.Map<UserDto>(user),
                 Token = jwtToken,
                 RefreshToken = refreshToken
             };
         }
 
-        public async Task<bool> LogoutAsync(string email, string refreshToken)
+        public async Task<bool> LogoutAsync(string email)
         {
-            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(refreshToken))
+            if (string.IsNullOrWhiteSpace(email))
                 return false;
-
-            return await _userRepository.RevokeRefreshTokenAsync(email, refreshToken);
+            return await _userRepository.RevokeAllRefreshTokensAsync(email);
         }
 
-        public async Task<User?> GetUserByEmailAsync(string email)
+        public async Task<Users?> GetUserAsync(string email)
         {
-            return await _userRepository.GetByEmailAsync(email);
+            try
+            {
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    Console.WriteLine("Invalid or missing email.");
+                    return null;
+                }
+
+                // Fetch user from repository
+                var user = await _userRepository.GetByEmailAsync(email);
+                if (user == null)
+                {
+                    Console.WriteLine($"User with email {email} not found.");
+                    return null;
+                }
+
+                return user;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching user: {ex.Message}");
+                return null;
+            }
         }
+
         public async Task<RefreshTokenResponseDto> RefreshTokenAsync(string refreshToken)
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
                 throw new ArgumentException("Refresh token is required.");
 
-            // Validate and get user associated with the refresh token
             var user = await _userRepository.ValidateRefreshTokenAsync(refreshToken);
             if (user == null)
                 throw new KeyNotFoundException("Invalid or expired refresh token.");
 
-            // Invalidate the old refresh token
             await _userRepository.InvalidateRefreshTokenAsync(user.Id, refreshToken);
 
-            // Generate new tokens
             string newJwtToken = GenerateJwtToken(user);
             string newRefreshToken = GenerateRefreshToken();
 
-            // Store the new refresh token
             await _userRepository.StoreRefreshTokenAsync(user.Id, newRefreshToken);
 
             return new RefreshTokenResponseDto
@@ -128,15 +128,16 @@ namespace AuthenticationTest.Service.src.Services
             };
         }
 
-        private string GenerateJwtToken(User user)
+        private string GenerateJwtToken(Users user)
         {
             var claims = new[]
             {
-                new Claim(ClaimTypes.NameIdentifier, user.Email),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Sub, user.Email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
                 new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, user.Role.ToString())
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSecret));
@@ -146,7 +147,7 @@ namespace AuthenticationTest.Service.src.Services
                 issuer: _issuer,
                 audience: _audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(60), // Token expires in 60 minutes
+                expires: DateTime.UtcNow.AddMinutes(60),
                 signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
@@ -160,19 +161,7 @@ namespace AuthenticationTest.Service.src.Services
             return Convert.ToBase64String(randomNumber);
         }
 
-        private void ValidateSignUpRequest(SignUpRequestDto dto)
-        {
-            if (dto == null)
-                throw new ArgumentNullException(nameof(dto), "Sign-up request cannot be null.");
-
-            if (string.IsNullOrWhiteSpace(dto.Email) || !IsValidEmail(dto.Email))
-                throw new ArgumentException("Invalid or missing email format.");
-
-            if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 8 || dto.Password.Length > 20)
-                throw new ArgumentException("Password must be between 8 and 20 characters.");
-        }
-
-        public static async Task<string> HashPasswordAsync(string password)
+        public static string HashPasswordSync(string password)
         {
             byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
             var argon2 = new Argon2id(passwordBytes)
@@ -183,20 +172,18 @@ namespace AuthenticationTest.Service.src.Services
                 Salt = new byte[16]
             };
             RandomNumberGenerator.Fill(argon2.Salt);
-            byte[] hash = await argon2.GetBytesAsync(32);
+
+            // Block until the async hashing is complete
+            // .GetAwaiter().GetResult() is generally preferred over .Result for avoiding deadlocks
+            byte[] hash = argon2.GetBytesAsync(32).GetAwaiter().GetResult();
+
             return $"argon2id$v=19$m={argon2.MemorySize},t={argon2.Iterations},p={argon2.DegreeOfParallelism}${Convert.ToBase64String(argon2.Salt)}${Convert.ToBase64String(hash)}";
         }
 
-        private static bool IsValidEmail(string email)
-        {
-            return System.Net.Mail.MailAddress.TryCreate(email, out _);
-        }
-
-        public static async Task<bool> VerifyPasswordAsync(string password, string hashedPassword)
+        private static async Task<bool> VerifyPasswordAsync(string password, string hashedPassword)
         {
             try
             {
-                // Validate inputs
                 if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(hashedPassword))
                     return false;
 
@@ -208,9 +195,9 @@ namespace AuthenticationTest.Service.src.Services
                 if (paramParts.Length != 3)
                     return false;
 
-                int memorySize = int.Parse(paramParts[0].Substring(2)); // Skip "m="
-                int iterations = int.Parse(paramParts[1].Substring(2)); // Skip "t="
-                int parallelism = int.Parse(paramParts[2].Substring(2)); // Skip "p="
+                int memorySize = int.Parse(paramParts[0].Substring(2));
+                int iterations = int.Parse(paramParts[1].Substring(2));
+                int parallelism = int.Parse(paramParts[2].Substring(2));
 
                 byte[] salt = Convert.FromBase64String(parts[3]);
                 byte[] expectedHash = Convert.FromBase64String(parts[4]);

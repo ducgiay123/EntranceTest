@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import "./loginPage.css";
 import LoginImage from "../asserts/login.png"; // Assuming you have this image in your assets folder
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "../redux/slices/authSlice";
 const LoginPage = () => {
@@ -11,7 +10,7 @@ const LoginPage = () => {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const dispatch = useDispatch();
-  const { loading, error, accessToken } = useSelector((state) => state.auth);
+  const { loading, error, token, user } = useSelector((state) => state.auth);
 
   const navigate = useNavigate();
   // Basic email validation function
@@ -32,41 +31,42 @@ const LoginPage = () => {
   // Handle form submission
   const handleLogin = async (e) => {
     e.preventDefault();
-
     let isValid = true;
-
-    // Reset error messages
     setEmailError("");
     setPasswordError("");
 
-    // Validate email
     if (!email || !validateEmail(email)) {
       setEmailError("Email is required and must be valid.");
       isValid = false;
     }
 
-    // Validate password
     if (!password) {
       setPasswordError("Password is required.");
       isValid = false;
     }
+
     if (isValid) {
       const result = await dispatch(loginUser({ email, password }));
+
       if (result.meta.requestStatus === "fulfilled") {
-        navigate("/dashboard");
+        // Navigation will now happen inside useEffect
       } else {
-        // Show alert on login failure
         alert(
           "Login failed. Please check your email or password and try again."
         );
       }
     }
   };
+ 
   useEffect(() => {
-    if (accessToken) {
-      navigate("/dashboard");
+    if (token && user) {
+      if (user.role === 1) {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
     }
-  }, [accessToken, navigate]);
+  }, [token, user, navigate]);
   return (
     <div className="main-container">
       <div className="left-container">

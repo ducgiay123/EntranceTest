@@ -6,17 +6,18 @@ export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async ({ email, password }, thunkAPI) => {
     try {
-      const res = await axios.post(
-        "http://streaming.nexlesoft.com:3001/auth/signin",
-        {
-          email,
-          password,
-        }
-      );
-      const { accessToken, refreshToken, user } = res.data;
-      sessionStorage.setItem("accessToken", accessToken);
+      const res = await axios.post("http://localhost:5000/api/v1/auth/login", {
+        email,
+        password,
+      });
+      const { token, refreshToken, user } = res.data;
+
+      // Save to session storage
+      sessionStorage.setItem("token", token);
       sessionStorage.setItem("refreshToken", refreshToken);
-      return { accessToken, refreshToken, user };
+      sessionStorage.setItem("user", JSON.stringify(user)); // Save user to session
+
+      return { token, refreshToken, user };
     } catch (err) {
       return thunkAPI.rejectWithValue(
         err.response?.data?.message || "Login failed"
@@ -30,43 +31,74 @@ export const logoutUser = createAsyncThunk(
   "auth/logoutUser",
   async (_, thunkAPI) => {
     try {
-      const state = thunkAPI.getState();
-      const accessToken = state.auth.accessToken;
-      const refreshToken = sessionStorage.getItem("refreshToken");
-      console.log("Logout tokens", accessToken, refreshToken);
+      const token = sessionStorage.getItem("token");
+      if (!token) {
+        return thunkAPI.rejectWithValue("No token found");
+      }
+
+      // Send POST request with Authorization header
       await axios.post(
-        "http://streaming.nexlesoft.com:3001/auth/signout",
-        { refreshToken: refreshToken },
+        "http://localhost:5000/api/v1/auth/logout",
+        {}, // Empty body since logout doesn't need data
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
 
+      // Clear session storage
       sessionStorage.clear();
       return true;
     } catch (err) {
+      console.error("Logout error:", err.response?.data);
       return thunkAPI.rejectWithValue(
         err.response?.data?.message || "Logout failed"
       );
     }
   }
 );
+export const fetchUser = createAsyncThunk(
+  "auth/fetchUser",
+  async (_, thunkAPI) => {
+    try {
+      const token = sessionStorage.getItem("token");
+      if (!token) {
+        return thunkAPI.rejectWithValue("No token found");
+      }
 
+      const res = await axios.get("http://localhost:5000/api/v1/auth/user", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const user = res.data;
+      sessionStorage.setItem("user", JSON.stringify(user)); // Persist user
+      return user;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(
+        err.response?.data?.message || "Failed to fetch user"
+      );
+    }
+  }
+);
 const authSlice = createSlice({
   name: "auth",
   initialState: {
     user: null,
-    accessToken: sessionStorage.getItem("accessToken") || null,
+    token: sessionStorage.getItem("token") || null,
     loading: false,
     error: null,
   },
   reducers: {
     logout(state) {
       state.user = null;
-      state.accessToken = null;
+      state.token = null;
       sessionStorage.clear();
+    },
+    setUserFromSession(state, action) {
+      state.user = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -79,7 +111,7 @@ const authSlice = createSlice({
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
-        state.accessToken = action.payload.accessToken;
+        state.token = action.payload.token;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -94,7 +126,7 @@ const authSlice = createSlice({
       .addCase(logoutUser.fulfilled, (state) => {
         state.loading = false;
         state.user = null;
-        state.accessToken = null;
+        state.token = null;
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.loading = false;
@@ -103,5 +135,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, setUserFromSession } = authSlice.actions;
 export default authSlice.reducer;
