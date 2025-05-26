@@ -147,7 +147,7 @@ namespace AuthenticationTest.Service.src.Services
                 issuer: _issuer,
                 audience: _audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(60),
+                expires: DateTime.UtcNow.AddMinutes(120),
                 signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
